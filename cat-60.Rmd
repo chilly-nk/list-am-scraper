@@ -1,0 +1,660 @@
+---
+title: "List.am Estate Sale Data Extractor"
+author: "NC"
+date: "10/09/2023"
+output: html_document
+---
+
+```{r}
+rm(list = ls())
+```
+
+
+# Decide what to scrape
+
+```{r}
+# Categories:
+# 56 - Rents
+# 60 - Sales
+
+category = 60
+pages <- 1:2
+request <- 1
+pricesqm <- 5500 # Price cutoff, less than which to be interpreted as mistakenly renting announcements but put under selling ones
+
+```
+
+
+# Libraries used
+
+```{r message=FALSE, warning=FALSE}
+library(rvest)
+library(dplyr)
+library(stringr)
+library(readr)
+library(tmaptools)
+library(geosphere)
+library(tidyr)
+library(googlesheets4)
+```
+
+
+# Scrape
+
+```{r warning=FALSE}
+
+# Downloading all the pages of specified category from List.am
+
+category <- paste0('https://www.list.am/category/', category, "/")
+
+allurls <- character()
+
+for (i in pages) {
+  
+  pagesource = read_html(
+                    paste0(category, i))
+  
+  urlstarts = 
+    unlist(
+      gregexpr(
+        "/item/", pagesource))
+  
+  urlends = urlstarts+13
+  
+  lurls =
+    paste0("https://www.list.am/en",
+      substring(
+        pagesource,
+        urlstarts,
+        urlends
+      )
+    )
+  
+  #allurls = unique(c(allurls, lurls)) #removing duplicates
+  
+  allurls = c(allurls, lurls)
+  
+}
+
+urlsbeforeduplicates = length(allurls)
+
+#removing duplicates
+
+allurls = unique(allurls)
+
+percentofunique = length(allurls)/urlsbeforeduplicates*100
+
+#write.csv(allurls, file = "allurls.csv")
+
+
+  
+#Parameters below are just found out and copied from Announcements, then each parameter's data for each announcement (link) is acquired through the loops below.
+
+parameters = c(
+"Construction Type",
+"New Construction",
+"Elevator",
+"Floors in the Building",
+"The House Has",
+"Parking",
+"Floor Area",
+"Number of Rooms",
+"Number of Bathrooms",
+"Ceiling Height",
+"Floor",
+"Balcony",
+"Furniture",
+"Renovation",
+"Appliances",
+"Window Views"
+)
+
+#Some other important parameters to be scraped later
+#Posted 22.01.2023
+#Renewed 03.02.2023 21:39
+#Description maybe
+#Nearby places!!! - those are tables, maybe use read.table or something like that
+
+# A good announcement with many parameters, especially amenities
+# https://www.list.am/en/item/18690985
+
+
+#Creating empty objects with each parameter name for storing the values obtained through the next loops
+
+for (parameter in parameters) {
+  
+  assign(
+    gsub(" ", "", parameter), character())
+  
+}
+
+
+# Price parameters - creating empty vectors
+mainCurrency = character()
+Price.USD = character()
+Address = character()
+
+#this is for trying to understand whether pricestring is of identical structure in all announcements, try later
+#pricestring = character()
+
+
+#Main loop
+
+#For test use some urls, not all urls in the loop
+
+urls = allurls
+
+for (link in urls) { #urls is important variable, don't change
+  
+#Reading the source codes of each announcement (while dealing with errors of unavailable links)
+  
+  source = tryCatch(read_html(link),
+                    error = function(e)
+                    paste("AnnouncementRemoved"))
+  
+#This if statement can be used for moving to the next iteration, the only problem is that we get vectors of differing lengths, and dataframe assembly does not occur properly. Maybe a solution could be eliminating the current element from urls based on the current iteration number. 
+  
+  if(source == "AnnouncementRemoved") {
+    urls = urls[ urls != link ]
+    next}
+
+  #  if(source == "AnnouncementRemoved") next 
+  
+  #urls != "https://www.list.am/en/item/18790723" - inactivated, not tested after
+  
+  #Obtaining main currency of each announcement, whether it is listed as USD or AMD or other
+  currencystart = 
+    unlist(
+      regexpr(
+        "priceCurrency", source))+24
+  
+  currencyend = currencystart+2
+ 
+  lmainCurrency = 
+    substring(
+      source,
+      currencystart, 
+      currencyend)
+  
+#Creating the vector of this parameter
+  mainCurrency = c(mainCurrency, lmainCurrency)
+  
+  #USD
+  
+  pricestringstart = 
+    unlist(
+        regexpr(
+          'priceCurrency', source))
+  
+  pricestringend = pricestringstart + 250
+  
+  lpricestring = 
+    substring(
+      source, 
+      pricestringstart, 
+      pricestringend)
+  
+  #pricestring = c(pricestring, lpricestring)
+  
+  USDstart = 
+    unlist(
+        regexpr(
+          '\\$', lpricestring))+1
+  
+  USDstring = 
+    substring(
+      lpricestring,
+      USDstart,
+      USDstart+50
+    )
+  
+  USDend = USDstart + regexpr('</span>', USDstring)-2
+  
+  lUSD = 
+    substring(
+      lpricestring,
+      USDstart,
+      USDend
+    )
+    
+  #Creating the vector of prices
+  Price.USD = c(Price.USD, lUSD)
+  
+ 
+  
+   #Extracting Address using Rvest package
+  
+  #(Source is already read / source = read_html(link)), so we just need to pass it to rvest package functions
+  
+  #This works until it generates an error (i. e. source gets "AnnouncementRemoved")
+  laddress = source %>% html_nodes(".loc") %>% html_text()
+  Address = c(Address, laddress)
+
+  
+  #Scraping Other parameters
+  
+  for (parameter in parameters) {
+    
+    parameterstart = 
+      unlist(
+        regexpr(
+          parameter, source))
+    
+    parameterstring = 
+      substring(
+        source,
+        parameterstart,
+        parameterstart+100
+        )
+    
+    splitstring = 
+      str_split_1(parameterstring, "<|>|/")
+    
+    assign(
+      paste0("l", gsub(" ", "", parameter)),
+      splitstring[6]
+    )
+    
+    assign(
+      gsub(" ", "", parameter),
+        c(
+          get(gsub(" ", "", parameter)), 
+          get(paste0("l", gsub(" ", "", parameter))
+                 )
+        )
+    )
+    
+  }
+  
+}
+
+#Collecting all resulted parameter vectors into a list
+
+#Working !!!
+mylist = list()
+
+  for (parameter in parameters) {
+  
+  llist <- 
+    list(
+      get(gsub(" ", "", parameter)))
+
+  names(llist) = 
+    c(parameter)
+  
+  mylist = append(mylist, llist)
+  
+  }
+
+rawdata = 
+  data.frame(
+    urls,
+    mainCurrency,
+    Price.USD,
+    Address,
+    mylist)
+
+```
+
+
+# Cleanup
+
+```{r}
+#Cleaning up the data
+mydata = rawdata
+
+mydata[mydata == "head"] <- NA
+mydata[mydata == "lan"] <- NA
+
+#Cleaning up a few columns using pagckage "tidyr"
+mydata = separate(mydata, Floor.Area, "Floor.Area.sqm", sep = " ")
+
+#For Renting announcements
+mydata = separate(mydata, Price.USD, c("Price.USD", "Per"), sep = " ")
+
+
+mydata$Price.USD = as.numeric(gsub(",", "", mydata$Price.USD))
+mydata$Floor.Area.sqm = as.numeric(mydata$Floor.Area.sqm) # NAs introduced by coercion, possibly values like 200+ etc.
+mydata$Floor = as.numeric(mydata$Floor)
+
+
+# Interpreting some prices ONLY FOR SALES
+# - <5500 as beinq per sqm
+
+idpricesqm <- which(
+                mydata$Price.USD <= pricesqm & 
+                !is.na(mydata$Price.USD) & 
+                !is.na(mydata$Floor.Area.sqm)
+                )
+
+mydata$Price.USD[idpricesqm] <- 
+  
+  mydata$Price.USD[idpricesqm]*
+  mydata$Floor.Area.sqm[idpricesqm]
+
+```
+
+```{r}
+write_excel_csv(mydata, "mydata.csv")
+```
+
+
+# Additional tailoring of the data to specific user needs
+- user preferences are taken from a google form responses
+- will need access to google account
+```{r}
+
+# Obtaining user preferences
+
+userprefs <- read_sheet("https://docs.google.com/spreadsheets/d/1bfMWwyNAUyVR37UAsqI41ExeoSCdx6-zp9bm052tb2Y/edit?usp=sharing", "Transformed")
+
+colnames(userprefs)[seq_along(userprefs)] <- c(
+                                               "timestamp",
+                                               "requestno",
+                                               "status",
+                                               "namesurname",
+                                               "email",
+                                               "phone",
+                                               "maxprice",
+                                               "rooms1",
+                                               "rooms2",
+                                               "rooms3",
+                                               "rooms4",
+                                               "rooms5+",
+                                               "minarea",
+                                               "maxarea",
+                                               "floor1",
+                                               "floor2",
+                                               "floor3",
+                                               "floor4",
+                                               "floor5",
+                                               "floor6",
+                                               "floor7",
+                                               "floor8",
+                                               "floor9",
+                                               "floor10",
+                                               "floor11",
+                                               "floor12",
+                                               "floor13",
+                                               "floor14",
+                                               "floor15",
+                                               "floor16+",
+                                               "placeA",
+                                               "placeA.imp",
+                                               "placeB",
+                                               "placeB.imp",
+                                               "placeC",
+                                               "placeC.imp",
+                                               "otherprefs"
+                                      )
+
+
+userprefs <- filter(userprefs, requestno == request) #select request
+
+# Replacing missing values with 1s, so that they don't affect the calculations and final scores
+num_cols <- sapply(userprefs, is.numeric)
+userprefs[num_cols] <- replace(userprefs[num_cols],
+                               is.na(userprefs[num_cols]),
+                               1)
+
+# View(userprefs)
+
+```
+
+
+```{r}
+
+# Filtering Data according to user preferences
+
+maxprice <- userprefs$maxprice+0.05*userprefs$maxprice
+minarea <- userprefs$minarea-5
+maxarea <- userprefs$maxarea+0.05*userprefs$maxarea
+
+
+userdata <-  
+  filter(
+    mydata, 
+    (Price.USD < maxprice | is.na(Price.USD)),
+    (Floor.Area.sqm > minarea | is.na(Floor.Area.sqm)),
+    (Floor.Area.sqm < maxarea | is.na(Floor.Area.sqm))
+    )
+
+```
+
+
+```{r}
+write_excel_csv(mydata, "mydata.csv")
+```
+
+
+# Tailoring the data according to distances to the user-preferred city sites
+- became buggish over time, need to check what's the problem
+- put under comment not to run when knitting
+
+### Obtaining latitude and longitude of each apartment
+```{r}
+
+# geocoded_df <- data.frame()
+# geocode_error_pos <- numeric()
+# 
+# i = 1
+# 
+# while (i <= nrow(userdata)) {
+#   
+#   tryCatch(
+#     {message(paste("geocoding", i, "out of", nrow(userdata)))
+#      geocoded_df = rbind(geocoded_df, 
+#                          geocode_OSM(userdata$Address[i],
+#                                           details = FALSE, 
+#                                           keep.unfound = TRUE,
+#                                           as.data.frame = TRUE))
+#     i = i+1
+#     },
+#     error = function(e){
+#       print(paste0("error at position", i))
+#       geocode_error_pos <<- c(geocode_error_pos, i) 
+# # <<- is for assigning it in the global environment, otherwise tryCatch does this in its specific environment and does not work
+#     }
+#   )
+# }
+# 
+# #Binding geoparameters to main data
+# 
+# userdata = cbind(userdata, geocoded_df[c("lat", "lon")])
+
+```
+
+
+# Evaluating the price/quality for the specific user, according the his/her specific needs
+
+```{r}
+# 
+# # User preference score for specific parameters
+# 
+# # Obtaining user's preferences in separate vectors
+# uroomprefs = as.numeric(userprefs[1, 8:12])
+# ufloorprefs = as.numeric(userprefs[1, 15:30])
+# 
+# 
+# # Room preference score
+# 
+# userdata$roompref <- NA # Create an empty column, then change values
+# 
+# userdata$roompref[userdata$Number.of.Rooms == 1] <- uroomprefs[1]
+# userdata$roompref[userdata$Number.of.Rooms == 2] <- uroomprefs[2]
+# userdata$roompref[userdata$Number.of.Rooms == 3] <- uroomprefs[3]
+# userdata$roompref[userdata$Number.of.Rooms == 4] <- uroomprefs[4]
+# userdata$roompref[userdata$Number.of.Rooms >= 5] <- uroomprefs[5]
+# 
+# # Floor preference score
+# 
+# userdata$floorpref <- NA # Create an empty column, then change values
+# 
+# userdata$floorpref[userdata$Floor == 1] <- ufloorprefs[1]
+# userdata$floorpref[userdata$Floor == 2] <- ufloorprefs[2]
+# userdata$floorpref[userdata$Floor == 3] <- ufloorprefs[3]
+# userdata$floorpref[userdata$Floor == 4] <- ufloorprefs[4]
+# userdata$floorpref[userdata$Floor == 5] <- ufloorprefs[5]
+# userdata$floorpref[userdata$Floor == 6] <- ufloorprefs[6]
+# userdata$floorpref[userdata$Floor == 7] <- ufloorprefs[7]
+# userdata$floorpref[userdata$Floor == 8] <- ufloorprefs[8]
+# userdata$floorpref[userdata$Floor == 9] <- ufloorprefs[9]
+# userdata$floorpref[userdata$Floor == 10] <- ufloorprefs[10]
+# userdata$floorpref[userdata$Floor == 11] <- ufloorprefs[11]
+# userdata$floorpref[userdata$Floor == 12] <- ufloorprefs[12]
+# userdata$floorpref[userdata$Floor == 13] <- ufloorprefs[13]
+# userdata$floorpref[userdata$Floor == 14] <- ufloorprefs[14]
+# userdata$floorpref[userdata$Floor == 15] <- ufloorprefs[15]
+# userdata$floorpref[userdata$Floor >= 16] <- ufloorprefs[16]
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+
+# # Checking whether user's locations are geocodable
+# 
+# # library(geosphere)
+# # Defining Customer preferred addresses
+# 
+# locsforgeo = as.character(userprefs[1, c(31, 33, 35)])
+# 
+# locsgeocode = geocode_OSM(
+#               locsforgeo, 
+#               details = FALSE, 
+#               keep.unfound = TRUE,
+#               as.data.frame = TRUE)
+# 
+# View(locsgeocode)
+```
+
+Distances from users preferred locations - DONE
+
+```{r}
+# #Finding distance between defined locations and our announcement locations
+# 
+# Loc.1 = rep(locsforgeo[1], each = nrow(userdata)) #address for column
+# loc1lon = rep(locsgeocode[1, "lon"], each = nrow(userdata))
+# loc1lat = rep(locsgeocode[1, "lat"], each = nrow(userdata))
+# loc1_df = data.frame(loc1lon, loc1lat)
+# 
+# Loc.2 = rep(locsforgeo[2], each = nrow(userdata)) #address for column
+# loc2lon = rep(locsgeocode[2, "lon"], each = nrow(userdata))
+# loc2lat = rep(locsgeocode[2, "lat"], each = nrow(userdata))
+# loc2_df = data.frame(loc2lon, loc2lat)
+# 
+# Loc.3 = rep(locsforgeo[3], each = nrow(userdata)) #address for column
+# loc3lon = rep(locsgeocode[3, "lon"], each = nrow(userdata))
+# loc3lat = rep(locsgeocode[3, "lat"], each = nrow(userdata))
+# loc3_df = data.frame(loc3lon, loc3lat)
+# 
+# # Measuring distance
+# annslocs <- userdata[c("lon", "lat")]
+# 
+# To.Loc1.km = round(distHaversine(annslocs, loc1_df)/1000, digits = 1)
+# To.Loc2.km = round(distHaversine(annslocs, loc2_df)/1000, digits = 1)
+# To.Loc3.km = round(distHaversine(annslocs, loc3_df)/1000, digits = 1)
+# 
+# # User location importance
+# 
+# locs.imps <- as.numeric(userprefs[1, c(32, 34, 36)])
+# 
+# loc1.imp = rep(locs.imps[1], each = nrow(userdata))
+# loc2.imp = rep(locs.imps[2], each = nrow(userdata))
+# loc3.imp = rep(locs.imps[3], each = nrow(userdata))
+# 
+# # User location scores (importance over distance)
+# 
+# loc1.score = loc1.imp/To.Loc1.km
+# loc2.score = loc2.imp/To.Loc2.km
+# loc3.score = loc3.imp/To.Loc3.km
+# 
+# userdata = cbind(userdata,
+#                   Loc.1, To.Loc1.km, loc1.imp, loc1.score, 
+#                   Loc.2, To.Loc2.km, loc2.imp, loc2.score,
+#                   Loc.3, To.Loc3.km, loc3.imp, loc3.score
+#                   )
+
+```
+
+
+Continue here: GENERAL SCORE
+
+```{r}
+# # Final score / ranking: the highest the better
+# 
+# quality =  userdata$Floor.Area.sqm*
+#            userdata$roompref*
+#            userdata$floorpref
+#            # userdata$loc1.score*
+#            # userdata$loc2.score*
+#            # userdata$loc3.score
+# 
+# price = userdata$Price.USD
+# 
+# userdata$quality.price = quality/price
+
+```
+
+
+```{r}
+# # Final score / ranking: the highest the better
+# 
+# quality =  userdata$Floor.Area.sqm*
+#            userdata$roompref*
+#            userdata$floorpref*
+#            userdata$loc1.score*
+#            userdata$loc2.score*
+#            userdata$loc3.score
+# 
+# price = userdata$Price.USD
+# 
+# userdata$quality.price.withloc = quality/price
+
+```
+
+
+```{r}
+
+# userdataqualityprice <- userdata[order(userdata$quality.price.withloc, decreasing = TRUE), ]
+# 
+# # userdataqualityprice = 
+# #   filter(userdataqualityprice, 
+# #          (grepl(
+# #            "\\byerevan\\b", 
+# #            userdataqualityprice$Address, 
+# #            ignore.case = TRUE) |
+# #           grepl(
+# #             "\\bերևան\\b", 
+# #             userdataqualityprice$Address, 
+# #             ignore.case = TRUE)))
+# 
+# userdataqualityprice <- select(userdataqualityprice,
+#                                urls,
+#                                Price.USD,
+#                                Address,
+#                                Number.of.Rooms,
+#                                Floor.Area.sqm,
+#                                Floor,
+#                                Elevator,
+#                                roompref,
+#                                floorpref,
+#                                To.Loc1.km,
+#                                To.Loc2.km,
+#                                To.Loc3.km,
+#                                quality.price,
+#                                quality.price.withloc,
+#                                New.Construction,
+#                                Renovation,
+#                                Construction.Type,
+#                                The.House.Has,
+#                                Balcony,
+#                                Floors.in.the.Building,
+#                                )
+# 
+#   
+# # View(userdataqualityprice)
+# 
+# write_excel_csv(userdataqualityprice, "userdataqualityprice.csv")
+```
+
