@@ -1,16 +1,11 @@
 ---
-title: "List.am Estate Sale Data Extractor"
+title: "List.am Real Estate Data Extractor"
 author: "NC"
 date: "10/09/2023"
 output: html_document
 ---
 
-```{r}
-rm(list = ls())
-```
-
-
-# Decide what to scrape
+### Decide what to scrape
 
 ```{r}
 # Categories:
@@ -25,7 +20,7 @@ pricesqm <- 5500 # Price cutoff, less than which to be interpreted as mistakenly
 ```
 
 
-# Libraries used
+### Libraries needed
 
 ```{r message=FALSE, warning=FALSE}
 library(rvest)
@@ -39,7 +34,7 @@ library(googlesheets4)
 ```
 
 
-# Scrape
+### Scrape
 
 ```{r warning=FALSE}
 
@@ -297,7 +292,7 @@ rawdata =
 ```
 
 
-# Cleanup
+### Cleanup
 
 ```{r}
 #Cleaning up the data
@@ -339,7 +334,7 @@ write_excel_csv(mydata, "mydata.csv")
 ```
 
 
-# Additional tailoring of the data to specific user needs
+### Additional tailoring of the data to specific user needs
 - user preferences are taken from a google form responses
 - will need access to google account
 ```{r}
@@ -427,11 +422,11 @@ write_excel_csv(mydata, "mydata.csv")
 ```
 
 
-# Tailoring the data according to distances to the user-preferred city sites
+### Tailoring the data according to distances to the user-preferred city sites
 - became buggish over time, need to check what's the problem
 - put under comment not to run when knitting
 
-### Obtaining latitude and longitude of each apartment
+#### Obtaining latitude and longitude of each apartment
 ```{r}
 
 # geocoded_df <- data.frame()
@@ -465,7 +460,7 @@ write_excel_csv(mydata, "mydata.csv")
 ```
 
 
-# Evaluating the price/quality for the specific user, according the his/her specific needs
+### Evaluating the price/quality for the specific user, according the his/her specific needs
 
 ```{r}
 # 

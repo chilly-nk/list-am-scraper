@@ -13,7 +13,7 @@
 
 <meta name="date" content="2023-10-09" />
 
-<title>List.am Estate Sale Data Extractor</title>
+<title>List.am Real Estate Data Extractor</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -350,16 +350,15 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">List.am Estate Sale Data Extractor</h1>
+<h1 class="title toc-ignore">List.am Real Estate Data Extractor</h1>
 <h4 class="author">NC</h4>
 <h4 class="date">10/09/2023</h4>
 
 </div>
 
 
-<pre class="r"><code>rm(list = ls())</code></pre>
-<div id="decide-what-to-scrape" class="section level1">
-<h1>Decide what to scrape</h1>
+<div id="decide-what-to-scrape" class="section level3">
+<h3>Decide what to scrape</h3>
 <pre class="r"><code># Categories:
 # 56 - Rents
 # 60 - Sales
@@ -369,8 +368,8 @@ pages &lt;- 1:2
 request &lt;- 1
 pricesqm &lt;- 5500 # Price cutoff, less than which to be interpreted as mistakenly renting announcements but put under selling ones</code></pre>
 </div>
-<div id="libraries-used" class="section level1">
-<h1>Libraries used</h1>
+<div id="libraries-needed" class="section level3">
+<h3>Libraries needed</h3>
 <pre class="r"><code>library(rvest)
 library(dplyr)
 library(stringr)
@@ -380,8 +379,8 @@ library(geosphere)
 library(tidyr)
 library(googlesheets4)</code></pre>
 </div>
-<div id="scrape" class="section level1">
-<h1>Scrape</h1>
+<div id="scrape" class="section level3">
+<h3>Scrape</h3>
 <pre class="r"><code># Downloading all the pages of specified category from List.am
 
 category &lt;- paste0(&#39;https://www.list.am/category/&#39;, category, &quot;/&quot;)
@@ -633,8 +632,8 @@ rawdata =
     Address,
     mylist)</code></pre>
 </div>
-<div id="cleanup" class="section level1">
-<h1>Cleanup</h1>
+<div id="cleanup" class="section level3">
+<h3>Cleanup</h3>
 <pre class="r"><code>#Cleaning up the data
 mydata = rawdata
 
@@ -669,8 +668,8 @@ mydata$Price.USD[idpricesqm] &lt;-
   mydata$Floor.Area.sqm[idpricesqm]</code></pre>
 <pre class="r"><code>write_excel_csv(mydata, &quot;mydata.csv&quot;)</code></pre>
 </div>
-<div id="additional-tailoring-of-the-data-to-specific-user-needs" class="section level1">
-<h1>Additional tailoring of the data to specific user needs</h1>
+<div id="additional-tailoring-of-the-data-to-specific-user-needs" class="section level3">
+<h3>Additional tailoring of the data to specific user needs</h3>
 <ul>
 <li>user preferences are taken from a google form responses</li>
 <li>will need access to google account</li>
@@ -684,7 +683,6 @@ userprefs &lt;- read_sheet(&quot;https://docs.google.com/spreadsheets/d/1bfMWwyN
 <pre><code>##   See gargle&#39;s &quot;Non-interactive auth&quot; vignette for more details:</code></pre>
 <pre><code>##   &lt;]8;;https://gargle.r-lib.org/articles/non-interactive-auth.htmlhttps://gargle.r-lib.org/articles/non-interactive-auth.html]8;;&gt;</code></pre>
 <pre><code>## i The googlesheets4 package is using a cached token for &#39;]8;;mailto:narek.ch@gmail.comnarek.ch@gmail.com]8;;&#39;.</code></pre>
-<pre><code>## Auto-refreshing stale OAuth token.</code></pre>
 <pre><code>## v Reading from &quot;Բնակարանի գնում (Responses)&quot;.</code></pre>
 <pre><code>## v Range &#39;&#39;Transformed&#39;&#39;.</code></pre>
 <pre class="r"><code>colnames(userprefs)[seq_along(userprefs)] &lt;- c(
@@ -753,15 +751,15 @@ userdata &lt;-
     )</code></pre>
 <pre class="r"><code>write_excel_csv(mydata, &quot;mydata.csv&quot;)</code></pre>
 </div>
-<div id="tailoring-the-data-according-to-distances-to-the-user-preferred-city-sites" class="section level1">
-<h1>Tailoring the data according to distances to the user-preferred city
-sites</h1>
+<div id="tailoring-the-data-according-to-distances-to-the-user-preferred-city-sites" class="section level3">
+<h3>Tailoring the data according to distances to the user-preferred city
+sites</h3>
 <ul>
 <li>became buggish over time, need to check what’s the problem</li>
 <li>put under comment not to run when knitting</li>
 </ul>
-<div id="obtaining-latitude-and-longitude-of-each-apartment" class="section level3">
-<h3>Obtaining latitude and longitude of each apartment</h3>
+<div id="obtaining-latitude-and-longitude-of-each-apartment" class="section level4">
+<h4>Obtaining latitude and longitude of each apartment</h4>
 <pre class="r"><code># geocoded_df &lt;- data.frame()
 # geocode_error_pos &lt;- numeric()
 # 
@@ -791,9 +789,9 @@ sites</h1>
 # userdata = cbind(userdata, geocoded_df[c(&quot;lat&quot;, &quot;lon&quot;)])</code></pre>
 </div>
 </div>
-<div id="evaluating-the-pricequality-for-the-specific-user-according-the-hisher-specific-needs" class="section level1">
-<h1>Evaluating the price/quality for the specific user, according the
-his/her specific needs</h1>
+<div id="evaluating-the-pricequality-for-the-specific-user-according-the-hisher-specific-needs" class="section level3">
+<h3>Evaluating the price/quality for the specific user, according the
+his/her specific needs</h3>
 <pre class="r"><code># 
 # # User preference score for specific parameters
 # 
