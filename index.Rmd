@@ -8,9 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning=FALSE)
 ```
+
 ### General info
 - GitHub repo (just to show the work): https://github.com/chilly-nk/list-am-scraper 
-- An example of scraped data is in 'scraped_data.csv'
+- An example of scraped data is in **'scraped_data.csv'**
 
 
 ### Decide what to scrape
