@@ -357,6 +357,13 @@ display: none;
 </div>
 
 
+<div id="general-info" class="section level3">
+<h3>General info</h3>
+<ul>
+<li>GitHub repo (just to show the work): <a href="https://github.com/chilly-nk/list-am-scraper" class="uri">https://github.com/chilly-nk/list-am-scraper</a></li>
+<li>An example of scraped data is in ‘scraped_data.csv’</li>
+</ul>
+</div>
 <div id="decide-what-to-scrape" class="section level3">
 <h3>Decide what to scrape</h3>
 <pre class="r"><code># Categories:
@@ -364,8 +371,8 @@ display: none;
 # 60 - Sales
 
 category = 60
-pages &lt;- 1:2
-request &lt;- 1
+pages &lt;- 1:2 # There are usually 250
+request &lt;- 1 # Hypothetical user request from google form responses
 pricesqm &lt;- 5500 # Price cutoff, less than which to be interpreted as mistakenly renting announcements but put under selling ones</code></pre>
 </div>
 <div id="libraries-needed" class="section level3">
@@ -641,14 +648,13 @@ mydata[mydata == &quot;head&quot;] &lt;- NA
 mydata[mydata == &quot;lan&quot;] &lt;- NA
 
 #Cleaning up a few columns using pagckage &quot;tidyr&quot;
-mydata = separate(mydata, Floor.Area, &quot;Floor.Area.sqm&quot;, sep = &quot; &quot;)</code></pre>
-<pre><code>## Warning: Expected 1 pieces. Additional pieces discarded in 207 rows [1, 2, 3, 4, 5, 6,
-## 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...].</code></pre>
-<pre class="r"><code>#For Renting announcements
-mydata = separate(mydata, Price.USD, c(&quot;Price.USD&quot;, &quot;Per&quot;), sep = &quot; &quot;)</code></pre>
-<pre><code>## Warning: Expected 2 pieces. Missing pieces filled with `NA` in 210 rows [1, 2, 3, 4, 5,
-## 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...].</code></pre>
-<pre class="r"><code>mydata$Price.USD = as.numeric(gsub(&quot;,&quot;, &quot;&quot;, mydata$Price.USD))
+mydata = separate(mydata, Floor.Area, &quot;Floor.Area.sqm&quot;, sep = &quot; &quot;)
+
+#For Renting announcements
+mydata = separate(mydata, Price.USD, c(&quot;Price.USD&quot;, &quot;Per&quot;), sep = &quot; &quot;)
+
+
+mydata$Price.USD = as.numeric(gsub(&quot;,&quot;, &quot;&quot;, mydata$Price.USD))
 mydata$Floor.Area.sqm = as.numeric(mydata$Floor.Area.sqm) # NAs introduced by coercion, possibly values like 200+ etc.
 mydata$Floor = as.numeric(mydata$Floor)
 
@@ -666,7 +672,7 @@ mydata$Price.USD[idpricesqm] &lt;-
   
   mydata$Price.USD[idpricesqm]*
   mydata$Floor.Area.sqm[idpricesqm]</code></pre>
-<pre class="r"><code>write_excel_csv(mydata, &quot;mydata.csv&quot;)</code></pre>
+<pre class="r"><code># write_excel_csv(mydata, &quot;mydata.csv&quot;)</code></pre>
 </div>
 <div id="additional-tailoring-of-the-data-to-specific-user-needs" class="section level3">
 <h3>Additional tailoring of the data to specific user needs</h3>
@@ -676,16 +682,9 @@ mydata$Price.USD[idpricesqm] &lt;-
 </ul>
 <pre class="r"><code># Obtaining user preferences
 
-userprefs &lt;- read_sheet(&quot;https://docs.google.com/spreadsheets/d/1bfMWwyNAUyVR37UAsqI41ExeoSCdx6-zp9bm052tb2Y/edit?usp=sharing&quot;, &quot;Transformed&quot;)</code></pre>
-<pre><code>## ! Using an auto-discovered, cached token.</code></pre>
-<pre><code>##   To suppress this message, modify your code or options to clearly consent to
-##   the use of a cached token.</code></pre>
-<pre><code>##   See gargle&#39;s &quot;Non-interactive auth&quot; vignette for more details:</code></pre>
-<pre><code>##   &lt;]8;;https://gargle.r-lib.org/articles/non-interactive-auth.htmlhttps://gargle.r-lib.org/articles/non-interactive-auth.html]8;;&gt;</code></pre>
-<pre><code>## i The googlesheets4 package is using a cached token for &#39;]8;;mailto:narek.ch@gmail.comnarek.ch@gmail.com]8;;&#39;.</code></pre>
-<pre><code>## v Reading from &quot;Բնակարանի գնում (Responses)&quot;.</code></pre>
-<pre><code>## v Range &#39;&#39;Transformed&#39;&#39;.</code></pre>
-<pre class="r"><code>colnames(userprefs)[seq_along(userprefs)] &lt;- c(
+userprefs &lt;- read_sheet(&quot;https://docs.google.com/spreadsheets/d/1bfMWwyNAUyVR37UAsqI41ExeoSCdx6-zp9bm052tb2Y/edit?usp=sharing&quot;, &quot;Transformed&quot;)
+
+colnames(userprefs)[seq_along(userprefs)] &lt;- c(
                                                &quot;timestamp&quot;,
                                                &quot;requestno&quot;,
                                                &quot;status&quot;,
@@ -749,7 +748,7 @@ userdata &lt;-
     (Floor.Area.sqm &gt; minarea | is.na(Floor.Area.sqm)),
     (Floor.Area.sqm &lt; maxarea | is.na(Floor.Area.sqm))
     )</code></pre>
-<pre class="r"><code>write_excel_csv(mydata, &quot;mydata.csv&quot;)</code></pre>
+<pre class="r"><code>write_excel_csv(userdata, &quot;scraped_data.csv&quot;)</code></pre>
 </div>
 <div id="tailoring-the-data-according-to-distances-to-the-user-preferred-city-sites" class="section level3">
 <h3>Tailoring the data according to distances to the user-preferred city
